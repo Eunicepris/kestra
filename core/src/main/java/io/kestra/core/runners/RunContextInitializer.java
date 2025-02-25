@@ -3,6 +3,7 @@ package io.kestra.core.runners;
 import com.google.common.collect.Lists;
 import io.kestra.core.models.Plugin;
 import io.kestra.core.models.executions.TaskRun;
+import io.kestra.core.models.executions.Variables;
 import io.kestra.core.models.tasks.Task;
 import io.kestra.core.models.tasks.runners.TaskRunner;
 import io.kestra.core.models.triggers.AbstractTrigger;
@@ -13,11 +14,13 @@ import io.kestra.core.storages.InternalStorage;
 import io.kestra.core.storages.StorageContext;
 import io.kestra.core.storages.StorageInterface;
 import io.kestra.core.utils.IdUtils;
+import io.kestra.core.utils.MapUtils;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.annotation.Value;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -125,6 +128,9 @@ public class RunContextInitializer {
             enrichedVariables.put("taskrun", taskrun);
         }
 
+        // rehydrate outputs
+        enrichedVariables.put("outputs", rehydrateOutputs((Map<String, Object>) enrichedVariables.get("outputs")));
+
         final RunContextLogger runContextLogger = contextLoggerFactory.create(taskRun, task);
         enrichedVariables.put(RunVariables.SECRET_CONSUMER_VARIABLE_NAME, (Consumer<String>) runContextLogger::usedSecret);
 
@@ -137,6 +143,27 @@ public class RunContextInitializer {
         runContext.setTask(task);
 
         return runContext;
+    }
+
+    private Map<String, Object> rehydrateOutputs(Map<String, Object> outputs) {
+        if (MapUtils.isEmpty(outputs)) {
+            return outputs;
+        }
+
+        Map<String, Object> newOutputs = HashMap.newHashMap(outputs.size());
+        outputs.forEach((key, value) -> {
+            if (value instanceof Map map) {
+                if (Variables.TYPE.equals(map.get("type")) && map.get("storageUri") != null) {
+                    URI uri = URI.create((String) map.get("storageUri"));
+                    newOutputs.put(key, Variables.of(uri));
+                } else {
+                    newOutputs.put(key, rehydrateOutputs(map));
+                }
+            } else {
+                newOutputs.put(key, value);
+            }
+        });
+        return newOutputs;
     }
 
     /**

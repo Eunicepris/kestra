@@ -42,22 +42,24 @@ final class Secret {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     Map<String, Object> decrypt(final Map<String, Object> data) {
-        Map<String, Object> decryptedMap = new HashMap<>(data);
-        for (var entry: data.entrySet()) {
-            if (entry.getValue() instanceof Map map) {
-                // if some value are of type EncryptedString we decode them and replace the object
-                if (EncryptedString.TYPE.equalsIgnoreCase((String)map.get("type"))) {
-                    try {
-                        String decoded = decrypt((String) map.get("value"));
-                        decryptedMap.put(entry.getKey(), decoded);
-                    } catch (GeneralSecurityException e) {
-                        throw new RuntimeException(e);
-                    }
-                }  else {
-                    decryptedMap.put(entry.getKey(), decrypt((Map<String, Object>) map));
-                }
-            }
-        }
-        return decryptedMap;
+        // FIXME
+        return data;
+//        Map<String, Object> decryptedMap = new HashMap<>(data);
+//        for (var entry: data.entrySet()) {
+//            if (entry.getValue() instanceof Map map) {
+//                // if some value are of type EncryptedString we decode them and replace the object
+//                if (EncryptedString.TYPE.equalsIgnoreCase((String)map.get("type"))) {
+//                    try {
+//                        String decoded = decrypt((String) map.get("value"));
+//                        decryptedMap.put(entry.getKey(), decoded);
+//                    } catch (GeneralSecurityException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                }  else {
+//                    decryptedMap.put(entry.getKey(), decrypt((Map<String, Object>) map));
+//                }
+//            }
+//        }
+//        return decryptedMap;
     }
 }
