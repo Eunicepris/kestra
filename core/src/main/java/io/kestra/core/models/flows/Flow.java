@@ -164,6 +164,10 @@ public class Flow extends AbstractFlow implements HasUID {
         );
     }
 
+    public static String uid(FlowInterface flow) {
+        return uid(flow.getTenantId(), flow.getNamespace(), flow.getId(), Optional.ofNullable(flow.getRevision()));
+    }
+
     public static String uid(String tenantId, String namespace, String id, Optional<Integer> revision) {
         return IdUtils.fromParts(
             tenantId,

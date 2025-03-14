@@ -4,13 +4,13 @@ import io.kestra.core.junit.annotations.KestraTest;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.Type;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.flows.input.StringInput;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.plugin.core.debug.Echo;
 import io.kestra.plugin.core.debug.Return;
 import jakarta.inject.Inject;
-import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -21,8 +21,6 @@ import java.util.stream.Stream;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @KestraTest
@@ -283,7 +281,7 @@ class FlowServiceTest {
     @Test
     void delete() {
         Flow flow = create("deleteTest", "test", 1);
-        FlowWithSource saved = flowRepository.create(flow, flow.generateSource(), flow);
+        FlowWithSource saved = flowRepository.create(GenericFlow.of(flow));
         assertThat(flowRepository.findById(flow.getTenantId(), flow.getNamespace(), flow.getId()).isPresent(), is(true));
         flowService.delete(saved);
         assertThat(flowRepository.findById(flow.getTenantId(), flow.getNamespace(), flow.getId()).isPresent(), is(false));
@@ -292,14 +290,14 @@ class FlowServiceTest {
     @Test
     void findByNamespacePrefix() {
         Flow flow = create("findByTest", "test", 1).toBuilder().namespace("some.namespace").build();
-        flowRepository.create(flow, flow.generateSource(), flow);
+        flowRepository.create(GenericFlow.of(flow));
         assertThat(flowService.findByNamespacePrefix(null, "some.namespace").size(), is(1));
     }
 
     @Test
     void findById() {
         Flow flow = create("findByIdTest", "test", 1);
-        FlowWithSource saved = flowRepository.create(flow, flow.generateSource(), flow);
+        FlowWithSource saved = flowRepository.create(GenericFlow.of(flow));
         assertThat(flowService.findById(null, saved.getNamespace(), saved.getId()).isPresent(), is(true));
     }
 
@@ -325,7 +323,7 @@ class FlowServiceTest {
     @Test
     void checkValidSubflow() {
         Flow subflow = create("existingSubflow", "task", 1);
-        flowRepository.create(subflow, subflow.generateSource(), subflow);
+        flowRepository.create(GenericFlow.of(subflow));
 
         Flow flow = create("mainFlow", "task", 1).toBuilder()
             .tasks(List.of(

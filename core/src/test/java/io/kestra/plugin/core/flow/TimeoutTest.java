@@ -5,6 +5,7 @@ import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.LogEntry;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.queues.QueueException;
 import io.kestra.core.queues.QueueFactoryInterface;
@@ -60,7 +61,7 @@ class TimeoutTest {
                 .build()))
             .build();
 
-        flowRepository.create(flow, flow.generateSource(), pluginDefaultService.injectDefaults(flow.withSource(flow.generateSource())));
+        flowRepository.create(GenericFlow.of(flow));
 
         Execution execution = runnerUtils.runOne(flow.getTenantId(), flow.getNamespace(), flow.getId());
 

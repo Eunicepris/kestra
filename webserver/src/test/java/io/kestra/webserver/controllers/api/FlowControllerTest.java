@@ -27,6 +27,7 @@ import io.kestra.core.junit.annotations.KestraTest;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.Type;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.flows.input.StringInput;
 import io.kestra.core.models.hierarchies.FlowGraph;
 import io.kestra.core.models.property.Property;
@@ -742,8 +743,7 @@ class FlowControllerTest {
         String flow = Files.readString(Path.of(Objects.requireNonNull(resource).getPath()), Charset.defaultCharset());
 
         String firstFlowSource = flow.split("(?m)^---")[0];
-        Flow firstFlow = parseFlow(firstFlowSource);
-        jdbcFlowRepository.create(firstFlow, firstFlowSource, firstFlow);
+        jdbcFlowRepository.create(GenericFlow.fromYaml(firstFlowSource));
 
         HttpResponse<List<ValidateConstraintViolation>> response = client.toBlocking().exchange(POST("/api/v1/flows/validate", flow).contentType(MediaType.APPLICATION_YAML), Argument.listOf(ValidateConstraintViolation.class));
 
@@ -777,8 +777,7 @@ class FlowControllerTest {
         URL resource = TestsUtils.class.getClassLoader().getResource("flows/warningsAndInfos.yaml");
         String source = Files.readString(Path.of(Objects.requireNonNull(resource).getPath()), Charset.defaultCharset());
 
-        Flow flow = parseFlow(source);
-        jdbcFlowRepository.create(flow, source, flow);
+        jdbcFlowRepository.create(GenericFlow.fromYaml(source));
 
         HttpResponse<List<ValidateConstraintViolation>> response = client.toBlocking().exchange(POST("/api/v1/flows/validate", source).contentType(MediaType.APPLICATION_YAML), Argument.listOf(ValidateConstraintViolation.class));
 

@@ -1,6 +1,7 @@
 package io.kestra.core.schedulers;
 
 import io.kestra.core.models.Label;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.utils.TestsUtils;
 import io.kestra.jdbc.runner.JdbcScheduler;
@@ -95,7 +96,7 @@ public class SchedulerPollingTriggerTest extends AbstractSchedulerTest {
             .toBuilder()
             .tasks(List.of(Fail.builder().id("fail").type(Fail.class.getName()).build()))
             .build();
-        flowRepository.create(flow, flow.generateSource(), flow);
+        flowRepository.create(GenericFlow.of(flow));
         doReturn(List.of(flow))
             .when(flowListenersServiceSpy)
             .flows();

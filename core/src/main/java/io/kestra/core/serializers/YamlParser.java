@@ -33,12 +33,11 @@ public class YamlParser {
         return FilenameUtils.getExtension(path.toFile().getAbsolutePath()).equals("yaml") || FilenameUtils.getExtension(path.toFile().getAbsolutePath()).equals("yml");
     }
 
-    public <T> T parse(String input, Class<T> cls) {
+    public static <T> T parse(String input, Class<T> cls) {
         return read(input, cls, type(cls));
     }
 
-
-    public <T> T parse(Map<String, Object> input, Class<T> cls, Boolean strict) {
+    public static  <T> T parse(Map<String, Object> input, Class<T> cls, Boolean strict) {
         ObjectMapper currentMapper = strict ? STRICT_MAPPER : NON_STRICT_MAPPER;
 
         try {
@@ -77,13 +76,12 @@ public class YamlParser {
         }
     }
 
-    private <T> T read(String input, Class<T> objectClass, String resource) {
+    private static  <T> T read(String input, Class<T> objectClass, String resource) {
         try {
             return STRICT_MAPPER.readValue(input, objectClass);
         } catch (JsonProcessingException e) {
             jsonProcessingExceptionHandler(input, resource, e);
         }
-
         return null;
     }
 

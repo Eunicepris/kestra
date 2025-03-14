@@ -7,8 +7,8 @@ import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.FlowWithException;
 import io.kestra.core.models.flows.FlowWithSource;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.triggers.AbstractTrigger;
-import io.kestra.core.models.validations.ManualConstraintViolation;
 import io.kestra.core.plugins.PluginRegistry;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.serializers.JacksonMapper;
@@ -16,8 +16,6 @@ import io.kestra.core.serializers.YamlParser;
 import io.kestra.core.utils.ListUtils;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.builder.EqualsBuilder;
@@ -63,29 +61,33 @@ public class FlowService {
             throw noRepositoryException();
         }
 
-        FlowWithSource withTenant = yamlParser.parse(source, Flow.class).toBuilder()
-            .tenantId(tenantId)
-            .build()
-            .withSource(source);
+        final GenericFlow flow = GenericFlow.fromYaml(tenantId, source);
 
         FlowRepositoryInterface flowRepository = this.flowRepository.get();
-        Optional<FlowWithSource> flowWithSource = flowRepository
-            .findByIdWithSource(withTenant.getTenantId(), withTenant.getNamespace(), withTenant.getId(), Optional.empty(), true);
-        if (dryRun) {
-            return flowWithSource
-                .map(previous -> {
-                    if (previous.equals(withTenant, source) && !previous.isDeleted()) {
-                        return previous;
-                    } else {
-                        return FlowWithSource.of(withTenant.toBuilder().revision(previous.getRevision() + 1).build(), source);
-                    }
-                })
-                .orElseGet(() -> FlowWithSource.of(withTenant, source).toBuilder().revision(1).build());
-        }
+        Optional<FlowWithSource> maybeExisting = flowRepository.findByIdWithSource(
+            flow.getTenantId(),
+            flow.getNamespace(),
+            flow.getId(),
+            Optional.empty(),
+            true
+        );
 
-        return flowWithSource
-            .map(previous -> flowRepository.update(withTenant, previous, source, pluginDefaultService.injectDefaults(withTenant)))
-            .orElseGet(() -> flowRepository.create(withTenant, source, pluginDefaultService.injectDefaults(withTenant)));
+        // Inject default plugin 'version' props before converting
+        // to flow to correctly resolve all plugin type.
+        FlowWithSource flowToImport = pluginDefaultService.injectVersionDefaults(flow);
+
+        if (dryRun) {
+            return maybeExisting
+                .map(previous -> previous.equals(flowToImport, source) && !previous.isDeleted() ?
+                    previous :
+                    FlowWithSource.of(flowToImport.toBuilder().revision(previous.getRevision() + 1).build(), source)
+                )
+                .orElseGet(() -> FlowWithSource.of(flowToImport, source).toBuilder().revision(1).build());
+        } else {
+            return maybeExisting
+                .map(previous -> flowRepository.update(flow, previous))
+                .orElseGet(() -> flowRepository.create(flow));
+        }
     }
 
     public List<FlowWithSource> findByNamespaceWithSource(String tenantId, String namespace) {

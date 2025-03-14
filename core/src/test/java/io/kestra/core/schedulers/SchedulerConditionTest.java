@@ -3,6 +3,7 @@ package io.kestra.core.schedulers;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.triggers.Trigger;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.runners.FlowListeners;
@@ -70,7 +71,7 @@ class SchedulerConditionTest extends AbstractSchedulerTest {
         CountDownLatch queueCount = new CountDownLatch(4);
 
         Flow flow = createScheduleFlow();
-        flowRepository.create(flow, flow.generateSource(), flow);
+        flowRepository.create(GenericFlow.of(flow));
 
         triggerState.create(Trigger.builder()
             .namespace(flow.getNamespace())

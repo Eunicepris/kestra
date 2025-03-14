@@ -4,6 +4,7 @@ import io.kestra.core.models.Label;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.runners.FlowListeners;
 import io.kestra.core.runners.TestMethodScopedWorker;
@@ -39,7 +40,7 @@ public class SchedulerThreadTest extends AbstractSchedulerTest {
     @Test
     void thread() throws Exception {
         Flow flow = createThreadFlow();
-        flowRepository.create(flow, flow.generateSource(), flow);
+        flowRepository.create(GenericFlow.of(flow));
         CountDownLatch queueCount = new CountDownLatch(2);
 
         // wait for execution

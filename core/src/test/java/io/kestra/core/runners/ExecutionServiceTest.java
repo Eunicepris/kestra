@@ -9,11 +9,11 @@ import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.State;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.repositories.ExecutionRepositoryInterface;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.repositories.LogRepositoryInterface;
-import io.kestra.core.serializers.JacksonMapper;
 import io.kestra.core.services.ExecutionService;
 import io.kestra.core.services.PluginDefaultService;
 import io.kestra.core.utils.Await;
@@ -83,7 +83,7 @@ class ExecutionServiceTest {
 
         FlowWithSource flow = flowRepository.findByIdWithSource(null, "io.kestra.tests", "restart_last_failed").orElseThrow();
         flowRepository.update(
-            flow,
+            GenericFlow.of(flow),
             flow.updateTask(
                 "a",
                 Return.builder()
@@ -91,9 +91,7 @@ class ExecutionServiceTest {
                     .type(Return.class.getName())
                     .format(Property.of("replace"))
                     .build()
-            ),
-            JacksonMapper.ofYaml().writeValueAsString(flow),
-            pluginDefaultService.injectDefaults(flow)
+            )
         );
 
 

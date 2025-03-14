@@ -1,6 +1,7 @@
 package io.kestra.core.runners;
 
 import io.kestra.core.models.flows.FlowWithSource;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.services.PluginDefaultService;
 import io.kestra.core.junit.annotations.KestraTest;
@@ -72,14 +73,14 @@ abstract public class FlowListenersTest {
         FlowWithSource firstUpdated = create(first.getId(), "test2");
 
 
-        flowRepository.create(first, first.generateSource(), pluginDefaultService.injectDefaults(first.withSource(first.generateSource())));
+        flowRepository.create(GenericFlow.of(first));
         wait(ref, () -> {
             assertThat(count.get(), is(1));
             assertThat(flowListenersService.flows().size(), is(1));
         });
 
         // create the same id than first, no additional flows
-        first = flowRepository.update(firstUpdated, first, firstUpdated.generateSource(), pluginDefaultService.injectDefaults(firstUpdated.withSource(firstUpdated.generateSource())));
+        first = flowRepository.update(GenericFlow.of(firstUpdated), first);
         wait(ref, () -> {
             assertThat(count.get(), is(1));
             assertThat(flowListenersService.flows().size(), is(1));
@@ -88,7 +89,7 @@ abstract public class FlowListenersTest {
 
         Flow second = create("second_" + IdUtils.create(), "test");
         // create a new one
-        flowRepository.create(second, second.generateSource(), pluginDefaultService.injectDefaults(second.withSource(second.generateSource())));
+        flowRepository.create(GenericFlow.of(second));
         wait(ref, () -> {
             assertThat(count.get(), is(2));
             assertThat(flowListenersService.flows().size(), is(2));
@@ -102,14 +103,14 @@ abstract public class FlowListenersTest {
         });
 
         // restore must works
-        flowRepository.create(first, first.generateSource(), pluginDefaultService.injectDefaults(first.withSource(first.generateSource())));
+        flowRepository.create(GenericFlow.of(first));
         wait(ref, () -> {
             assertThat(count.get(), is(2));
             assertThat(flowListenersService.flows().size(), is(2));
         });
 
         Flow withTenant = first.toBuilder().tenantId("some-tenant").build();
-        flowRepository.create(withTenant, withTenant.generateSource(), pluginDefaultService.injectDefaults(withTenant.withSource(withTenant.generateSource())));
+        flowRepository.create(GenericFlow.of(withTenant));
         wait(ref, () -> {
             assertThat(count.get(), is(3));
             assertThat(flowListenersService.flows().size(), is(3));
