@@ -6,6 +6,7 @@ import io.kestra.core.models.executions.ExecutionKilled;
 import io.kestra.core.models.executions.ExecutionKilledTrigger;
 import io.kestra.core.models.executions.LogEntry;
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.property.Property;
@@ -50,7 +51,7 @@ public class SchedulerTriggerChangeTest extends AbstractSchedulerTest {
 
     @Inject
     @Named(QueueFactoryInterface.FLOW_NAMED)
-    protected QueueInterface<FlowWithSource> flowQueue;
+    protected QueueInterface<FlowInterface> flowQueue;
 
     @Inject
     @Named(QueueFactoryInterface.WORKERTASKLOG_NAMED)

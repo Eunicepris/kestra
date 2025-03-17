@@ -13,6 +13,7 @@ import io.kestra.core.models.conditions.ConditionContext;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.ExecutionKilled;
 import io.kestra.core.models.executions.ExecutionKilledTrigger;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithException;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.State;
@@ -171,13 +172,16 @@ public abstract class AbstractScheduler implements Scheduler, Service {
 
         // remove trigger on flow update, update local triggers store, and stop the trigger on the worker
         this.flowListeners.listen((flow, previous) -> {
+
+            final FlowWithSource currentFlowWithSource = pluginDefaultService.injectAllDefaults(flow);
+            final FlowWithSource previousFlowWithSource = previous != null ? pluginDefaultService.injectAllDefaults(previous) : null;
+
             if (flow.isDeleted() || previous != null) {
                 List<AbstractTrigger> triggersDeleted = flow.isDeleted() ?
-                    ListUtils.emptyOnNull(flow.getTriggers()) :
-                    FlowService.findRemovedTrigger(flow, previous);
-
+                    ListUtils.emptyOnNull(currentFlowWithSource.getTriggers()) :
+                    FlowService.findRemovedTrigger(currentFlowWithSource, previousFlowWithSource);
                 triggersDeleted.forEach(abstractTrigger -> {
-                    Trigger trigger = Trigger.of(flow, abstractTrigger);
+                    Trigger trigger = Trigger.of(currentFlowWithSource, abstractTrigger);
 
                     try {
                         this.triggerQueue.delete(trigger);
@@ -198,19 +202,19 @@ public abstract class AbstractScheduler implements Scheduler, Service {
             }
 
             if (previous != null) {
-                FlowService.findUpdatedTrigger(flow, previous)
+                FlowService.findUpdatedTrigger(currentFlowWithSource, previousFlowWithSource)
                     .forEach(abstractTrigger -> {
                         if (abstractTrigger instanceof WorkerTriggerInterface) {
-                            RunContext runContext = runContextFactory.of(flow, abstractTrigger);
-                            ConditionContext conditionContext = conditionService.conditionContext(runContext, flow, null);
+                            RunContext runContext = runContextFactory.of(currentFlowWithSource, abstractTrigger);
+                            ConditionContext conditionContext = conditionService.conditionContext(runContext, currentFlowWithSource, null);
 
                             try {
-                                this.triggerState.update(flow, abstractTrigger, conditionContext);
+                                this.triggerState.update(currentFlowWithSource, abstractTrigger, conditionContext);
                             } catch (Exception e) {
-                                logError(conditionContext, flow, abstractTrigger, e);
+                                logError(conditionContext, currentFlowWithSource, abstractTrigger, e);
                             }
 
-                            Trigger trigger = Trigger.of(flow, abstractTrigger);
+                            Trigger trigger = Trigger.of(currentFlowWithSource, abstractTrigger);
                             try {
                                 this.executionKilledQueue.emit(ExecutionKilledTrigger
                                     .builder()
@@ -265,14 +269,14 @@ public abstract class AbstractScheduler implements Scheduler, Service {
     // Initialized local trigger state,
     // and if some flows were created outside the box, for example from the CLI,
     // then we may have some triggers that are not created yet.
-    private void initializedTriggers(List<FlowWithSource> flows) {
+    private void initializedTriggers(List<FlowInterface> flows) {
         record FlowAndTrigger(FlowWithSource flow, AbstractTrigger trigger) {
         }
         List<Trigger> triggers = triggerState.findAllForAllTenants();
 
         flows
             .stream()
-            .map(flow -> pluginDefaultService.injectDefaults(flow, log))
+            .map(flow -> pluginDefaultService.injectAllDefaults(flow, log))
             .filter(Objects::nonNull)
             .filter(flow -> flow.getTriggers() != null && !flow.getTriggers().isEmpty())
             .flatMap(flow -> flow.getTriggers().stream().filter(trigger -> trigger instanceof WorkerTriggerInterface).map(trigger -> new FlowAndTrigger(flow, trigger)))
@@ -412,10 +416,11 @@ public abstract class AbstractScheduler implements Scheduler, Service {
     }
 
     private List<FlowWithTriggers> computeSchedulable(List<FlowWithSource> flows, List<Trigger> triggerContextsToEvaluate, ScheduleContextInterface scheduleContext) {
+
         List<String> flowToKeep = triggerContextsToEvaluate.stream().map(Trigger::getFlowId).toList();
 
         triggerContextsToEvaluate.stream()
-            .filter(trigger -> !flows.stream().map(FlowWithSource::uidWithoutRevision).toList().contains(Flow.uid(trigger)))
+            .filter(trigger -> !flows.stream().map(it -> it.uidWithoutRevision()).toList().contains(Flow.uid(trigger)))
             .forEach(trigger -> {
                 try {
                     this.triggerState.delete(trigger);
@@ -426,8 +431,6 @@ public abstract class AbstractScheduler implements Scheduler, Service {
 
         return flows
             .stream()
-            .map(flow -> pluginDefaultService.injectDefaults(flow, log))
-            .filter(Objects::nonNull)
             .filter(flow -> flowToKeep.contains(flow.getId()))
             .filter(flow -> flow.getTriggers() != null && !flow.getTriggers().isEmpty())
             .filter(flow -> !flow.isDisabled() && !(flow instanceof FlowWithException))
@@ -481,7 +484,8 @@ public abstract class AbstractScheduler implements Scheduler, Service {
     public List<FlowWithTriggers> schedulerTriggers() {
         Map<String, FlowWithSource> flows = this.flowListeners.flows()
             .stream()
-            .collect(Collectors.toMap(FlowWithSource::uidWithoutRevision, Function.identity()));
+            .map(pluginDefaultService::injectAllDefaults)
+            .collect(Collectors.toMap(it -> it.uidWithoutRevision(), Function.identity()));
 
         return this.triggerState.findAllForAllTenants().stream()
             .filter(trigger -> flows.containsKey(trigger.flowUid()))
@@ -508,7 +512,12 @@ public abstract class AbstractScheduler implements Scheduler, Service {
 
         ZonedDateTime now = now();
 
-        this.handleNext(this.flowListeners.flows(), now, (triggers, scheduleContext) -> {
+        final List<FlowWithSource> flows = this.flowListeners.flows().stream()
+            .map(flow -> pluginDefaultService.injectAllDefaults(flow, log))
+            .filter(Objects::nonNull)
+            .toList();
+
+        this.handleNext(flows, now, (triggers, scheduleContext) -> {
             if (triggers.isEmpty()) {
                 return;
             }
@@ -517,7 +526,7 @@ public abstract class AbstractScheduler implements Scheduler, Service {
                 .filter(trigger -> Boolean.FALSE.equals(trigger.getDisabled()))
                 .toList();
 
-            List<FlowWithTriggers> schedulable = this.computeSchedulable(flowListeners.flows(), triggerContextsToEvaluate, scheduleContext);
+            List<FlowWithTriggers> schedulable = this.computeSchedulable(flows, triggerContextsToEvaluate, scheduleContext);
 
             metricRegistry
                 .counter(MetricRegistry.SCHEDULER_LOOP_COUNT)
@@ -806,7 +815,7 @@ public abstract class AbstractScheduler implements Scheduler, Service {
 
     private Optional<SchedulerExecutionWithTrigger> evaluateScheduleTrigger(FlowWithWorkerTrigger flowWithTrigger) {
         try {
-            FlowWithWorkerTrigger flowWithWorkerTrigger = flowWithTrigger.from(pluginDefaultService.injectDefaults(
+            FlowWithWorkerTrigger flowWithWorkerTrigger = flowWithTrigger.from(pluginDefaultService.injectAllDefaults(
                 flowWithTrigger.getFlow(),
                 flowWithTrigger.getConditionContext().getRunContext().logger()
             ));
@@ -883,7 +892,7 @@ public abstract class AbstractScheduler implements Scheduler, Service {
 
     private void sendWorkerTriggerToWorker(FlowWithWorkerTrigger flowWithTrigger) throws InternalException {
         FlowWithWorkerTrigger flowWithTriggerWithDefault = flowWithTrigger.from(
-            pluginDefaultService.injectDefaults(flowWithTrigger.getFlow(),
+            pluginDefaultService.injectAllDefaults(flowWithTrigger.getFlow(),
                 flowWithTrigger.getConditionContext().getRunContext().logger())
         );
 

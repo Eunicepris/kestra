@@ -69,11 +69,6 @@ public class Flow extends AbstractFlow implements HasUID {
 
     String description;
 
-    @JsonSerialize(using = ListOrMapOfLabelSerializer.class)
-    @JsonDeserialize(using = ListOrMapOfLabelDeserializer.class)
-    @Schema(implementation = Object.class, oneOf = {List.class, Map.class})
-    List<Label> labels;
-
     Map<String, Object> variables;
 
     @Valid
@@ -142,19 +137,6 @@ public class Flow extends AbstractFlow implements HasUID {
         return LoggerFactory.getLogger("flow." + this.id);
     }
 
-
-    /** {@inheritDoc **/
-    @Override
-    @JsonIgnore
-    public String uid() {
-        return Flow.uid(this.getTenantId(), this.getNamespace(), this.getId(), Optional.ofNullable(this.revision));
-    }
-
-    @JsonIgnore
-    public String uidWithoutRevision() {
-        return Flow.uidWithoutRevision(this.getTenantId(), this.getNamespace(), this.getId());
-    }
-
     public static String uid(Execution execution) {
         return IdUtils.fromParts(
             execution.getTenantId(),
@@ -174,6 +156,14 @@ public class Flow extends AbstractFlow implements HasUID {
             namespace,
             id,
             String.valueOf(revision.orElse(-1))
+        );
+    }
+
+    public static String uidWithoutRevision(FlowInterface flow) {
+        return IdUtils.fromParts(
+            flow.getTenantId(),
+            flow.getNamespace(),
+            flow.getId()
         );
     }
 
@@ -409,5 +399,16 @@ public class Flow extends AbstractFlow implements HasUID {
 
     public FlowWithSource withSource(String source) {
         return FlowWithSource.of(this, source);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @see #generateSource().
+     */
+    @JsonIgnore
+    @Override
+    public String source() {
+        return generateSource();
     }
 }

@@ -71,7 +71,7 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
     public static final Field<String> TENANT_FIELD = field("tenant_id", String.class);
     public static final Field<String> SOURCE_FIELD = field("source_code", String.class);
 
-    private final QueueInterface<FlowWithSource> flowQueue;
+    private final QueueInterface<FlowInterface> flowQueue;
     private final QueueInterface<Trigger> triggerQueue;
     private final ApplicationEventPublisher<CrudEvent<FlowInterface>> eventPublisher;
     private final ModelValidator modelValidator;
@@ -378,7 +378,7 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
     }
 
     @Override
-    public List<FlowWithSource> findAllWithSource(String tenantId) {
+    public List<FlowInterface> findAllWithSource(String tenantId) {
         return this.jdbcRepository
             .getDslContextWrapper()
             .transactionResult(configuration -> {
@@ -401,7 +401,7 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
     }
 
     @Override
-    public List<FlowWithSource> findAllWithSourceForAllTenants() {
+    public List<FlowInterface> findAllWithSourceForAllTenants() {
         return this.jdbcRepository
             .getDslContextWrapper()
             .transactionResult(configuration -> {
@@ -420,9 +420,9 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
                 // That's why we will try to deserialize each flow and log an error but not crash in case of exception.
                 return select.fetch().map(record -> {
                     try {
-                        return FlowWithSource.of(
-                            (Flow)jdbcRepository.map(record),
-                            record.get(SOURCE_FIELD)
+                        return GenericFlow.fromYaml(
+                            record.get("tenant_id", String.class),
+                            record.get("value", String.class)
                         );
                     } catch (Exception e) {
                         log.error("Unable to load the following flow:\n{}", record.get("value", String.class), e);
@@ -694,21 +694,28 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
 
     @SneakyThrows(QueueException.class)
     @Override
-    public FlowWithSource update(GenericFlow flow, Flow previous) throws ConstraintViolationException {
+    public FlowWithSource update(GenericFlow flow, FlowInterface previous) throws ConstraintViolationException {
 
         // Check Flow with defaults
         FlowWithSource flowWithDefault = pluginDefaultService.injectAllDefaults(flow);
         modelValidator.validate(flowWithDefault);
 
+        Flow previousFlow;
+        if (previous instanceof Flow o) {
+            previousFlow = o;
+        } else {
+            previousFlow = pluginDefaultService.injectAllDefaults(previous);
+        }
+
         // Check update
-        Optional<ConstraintViolationException> checkUpdate = previous.validateUpdate(flowWithDefault);
+        Optional<ConstraintViolationException> checkUpdate = previousFlow.validateUpdate(flowWithDefault);
         if (checkUpdate.isPresent()) {
             throw checkUpdate.get();
         }
 
         // Delete removed triggers
         FlowService
-            .findRemovedTrigger(flowWithDefault, previous)
+            .findRemovedTrigger(flowWithDefault, previousFlow)
             .forEach(throwConsumer(abstractTrigger -> triggerQueue.delete(Trigger.of(flowWithDefault, abstractTrigger))));
 
         // Persist
@@ -741,7 +748,7 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
 
         this.jdbcRepository.persist(flow, fields);
 
-        flowQueue.emit(flowWithSource);
+        flowQueue.emit(flow);
 
         if (nullOrExisting != null) {
             eventPublisher.publishEvent(new CrudEvent<>(flow, nullOrExisting, crudEventType));
@@ -754,9 +761,9 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
 
     @SneakyThrows
     @Override
-    public FlowWithSource delete(FlowWithSource flow) {
-        Optional<FlowWithSource> revision = this.findByIdWithSource(flow.getTenantId(), flow.getNamespace(), flow.getId(), Optional.ofNullable(flow.getRevision()));
-        if (revision.isEmpty()) {
+    public FlowWithSource delete(FlowInterface flow) {
+        Optional<FlowWithSource> existing = this.findByIdWithSource(flow.getTenantId(), flow.getNamespace(), flow.getId(), Optional.ofNullable(flow.getRevision()));
+        if (existing.isEmpty()) {
             throw new IllegalStateException("Flow " + flow.getId() + " doesn't exists");
         }
 
@@ -765,11 +772,11 @@ public abstract class AbstractJdbcFlowRepository extends AbstractJdbcRepository 
             throw new IllegalStateException("Flow " + flow.getId() + " doesn't exists");
         }
 
-        if (!last.get().getRevision().equals(revision.get().getRevision())) {
-            throw new IllegalStateException("Trying to deleted old revision, wanted " + revision.get().getRevision() + ", last revision is " + last.get().getRevision());
+        if (!last.get().getRevision().equals(existing.get().getRevision())) {
+            throw new IllegalStateException("Trying to deleted old revision, wanted " + existing.get().getRevision() + ", last revision is " + last.get().getRevision());
         }
 
-        FlowWithSource deleted = flow.toDeleted();
+        FlowWithSource deleted = existing.get().toDeleted();
 
         Map<Field<Object>, Object> fields = this.jdbcRepository.persistFields(deleted.toFlow());
         fields.put(field("source_code"), deleted.getSource());

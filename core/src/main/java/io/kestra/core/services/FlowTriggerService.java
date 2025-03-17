@@ -2,6 +2,7 @@ package io.kestra.core.services;
 
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithException;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.triggers.AbstractTrigger;
@@ -33,6 +34,9 @@ public class FlowTriggerService {
     @Inject
     private FlowService flowService;
 
+    @Inject
+    private PluginDefaultService pluginDefaultService;
+
     // used in EE only
     public Stream<FlowWithFlowTrigger> withFlowTriggersOnly(Stream<FlowWithSource> allFlows) {
         return allFlows
@@ -49,7 +53,12 @@ public class FlowTriggerService {
             .map(io.kestra.plugin.core.trigger.Flow.class::cast);
     }
 
-    public List<Execution> computeExecutionsFromFlowTriggers(Execution execution, List<Flow> allFlows, Optional<MultipleConditionStorageInterface> multipleConditionStorage) {
+    public List<Execution> computeExecutionsFromFlowTriggers(Execution execution, List<FlowInterface> flows, Optional<MultipleConditionStorageInterface> multipleConditionStorage) {
+
+        List<FlowWithSource> allFlows = flows.stream()
+            .map(flow -> pluginDefaultService.injectVersionDefaults(flow))
+            .toList();
+
         List<FlowWithFlowTrigger> validTriggersBeforeMultipleConditionEval = allFlows.stream()
             // prevent recursive flow triggers
             .filter(flow -> flowService.removeUnwanted(flow, execution))

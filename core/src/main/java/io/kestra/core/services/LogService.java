@@ -4,6 +4,7 @@ import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.LogEntry;
 import io.kestra.core.models.executions.TaskRun;
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.triggers.TriggerContext;
 import io.kestra.core.repositories.LogRepositoryInterface;
 import io.micronaut.context.annotation.Value;
@@ -38,7 +39,7 @@ public class LogService {
     @Inject
     LogRepositoryInterface logRepository;
 
-    public void logFlow(Flow flow, Logger logger, Level level, String message, Object... args) {
+    public void logFlow(FlowInterface flow, Logger logger, Level level, String message, Object... args) {
         String finalMsg = tenantEnabled ? FLOW_PREFIX_WITH_TENANT + message : FLOW_PREFIX_NO_TENANT + message;
         Object[] executionArgs = tenantEnabled ?
             new Object[] { flow.getTenantId(), flow.getNamespace(), flow.getId() } :

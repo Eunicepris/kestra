@@ -2,6 +2,7 @@ package io.kestra.core.services;
 
 import io.kestra.core.junit.annotations.KestraTest;
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.Type;
 import io.kestra.core.models.flows.GenericFlow;
@@ -122,14 +123,14 @@ class FlowServiceTest {
         var flow2 = create("test", "test2", 2);
         var flow3 = create("test", "test2", 2).toDeleted();
         var flow4 = create("test", "test2", 4);
-        Stream<FlowWithSource> stream = Stream.of(
+        Stream<FlowInterface> stream = Stream.of(
             flow1.withSource(flow1.generateSource()),
             flow2.withSource(flow2.generateSource()),
             flow3.withSource(flow3.generateSource()),
             flow4.withSource(flow4.generateSource())
         );
 
-        List<FlowWithSource> collect = flowService.keepLastVersion(stream).toList();
+        List<FlowInterface> collect = flowService.keepLastVersion(stream).toList();
 
         assertThat(collect.size(), is(1));
         assertThat(collect.getFirst().isDeleted(), is(false));
@@ -143,7 +144,7 @@ class FlowServiceTest {
         var flow3 = create("test", "test2", 2);
         var flow4 = create("test", "test3", 3);
         var flow5 = create("test", "test2", 2).toDeleted();
-        Stream<FlowWithSource> stream = Stream.of(
+        Stream<FlowInterface> stream = Stream.of(
             flow1.withSource(flow1.generateSource()),
             flow2.withSource(flow2.generateSource()),
             flow3.withSource(flow3.generateSource()),
@@ -151,7 +152,7 @@ class FlowServiceTest {
             flow5.withSource(flow5.generateSource())
         );
 
-        List<FlowWithSource> collect = flowService.keepLastVersion(stream).toList();
+        List<FlowInterface> collect = flowService.keepLastVersion(stream).toList();
 
         assertThat(collect.size(), is(1));
         assertThat(collect.getFirst().isDeleted(), is(false));
@@ -164,14 +165,14 @@ class FlowServiceTest {
         var flow2 = create("test", "test2", 2);
         var flow3 = create("test", "test2", 4);
         var flow4 = create("test", "test2", 2).toDeleted();
-        Stream<FlowWithSource> stream = Stream.of(
+        Stream<FlowInterface> stream = Stream.of(
             flow1.withSource(flow1.generateSource()),
             flow2.withSource(flow2.generateSource()),
             flow3.withSource(flow3.generateSource()),
             flow4.withSource(flow4.generateSource())
         );
 
-        List<FlowWithSource> collect = flowService.keepLastVersion(stream).toList();
+        List<FlowInterface> collect = flowService.keepLastVersion(stream).toList();
 
         assertThat(collect.size(), is(1));
         assertThat(collect.getFirst().isDeleted(), is(false));
@@ -186,7 +187,7 @@ class FlowServiceTest {
         var flow4 = create("test2", "test3", 3);
         var flow5 = create("test3", "test1", 2);
         var flow6 = create("test3", "test2", 3);
-        Stream<FlowWithSource> stream = Stream.of(
+        Stream<FlowInterface> stream = Stream.of(
             flow1.withSource(flow1.generateSource()),
             flow2.withSource(flow2.generateSource()),
             flow3.withSource(flow3.generateSource()),
@@ -195,7 +196,7 @@ class FlowServiceTest {
             flow6.withSource(flow6.generateSource())
         );
 
-        List<FlowWithSource> collect = flowService.keepLastVersion(stream).toList();
+        List<FlowInterface> collect = flowService.keepLastVersion(stream).toList();
 
         assertThat(collect.size(), is(3));
         assertThat(collect.stream().filter(flow -> flow.getId().equals("test")).findFirst().orElseThrow().getRevision(), is(2));

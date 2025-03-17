@@ -174,12 +174,20 @@ public class PluginDefaultService {
      * Inject plugin defaults into a Flow.
      * In case of exception, the flow is returned as is, then the logger is used to log the exception.
      */
-    public FlowWithSource injectDefaults(FlowWithSource flow, Logger logger) {
+    public FlowWithSource injectAllDefaults(FlowInterface flow, Logger logger) {
         try {
             return this.injectAllDefaults(flow);
         } catch (Exception e) {
             logger.warn(e.getMessage(), e);
-            return flow;
+            if (flow instanceof FlowWithSource item) {
+                return item;
+            }
+
+            if(flow instanceof Flow item) {
+                return FlowWithSource.of(item, ((Flow) flow).generateSource());
+            }
+
+            return null;
         }
     }
 
@@ -203,7 +211,7 @@ public class PluginDefaultService {
      * @param flow   the flow.
      * @return a new {@link FlowWithSource}.
      */
-    public <T extends FlowInterface & HasSource> FlowWithSource injectAllDefaults(final T flow) {
+    public FlowWithSource injectAllDefaults(final FlowInterface flow) {
         return parseFlowWithDefaults(
             flow.getTenantId(),
             flow.getNamespace(),
@@ -219,7 +227,7 @@ public class PluginDefaultService {
      * @param flow   the flow.
      * @return a new {@link FlowWithSource}.
      */
-    public <T extends FlowInterface & HasSource> FlowWithSource injectVersionDefaults(final T flow) {
+    public FlowWithSource injectVersionDefaults(final FlowInterface flow) {
         return parseFlowWithDefaults(
             flow.getTenantId(),
             flow.getNamespace(),

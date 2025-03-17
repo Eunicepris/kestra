@@ -122,7 +122,7 @@ public abstract class AbstractFlowRepositoryTest {
             .revision(3)
             .build();
         String source = "# comment\n" + flow.generateSource();
-        flow = flowRepository.create(GenericFlow.fromYaml(source));
+        flow = flowRepository.create(GenericFlow.fromYaml(null, source));
 
         try {
             Optional<FlowWithSource> full = flowRepository.findByIdWithSource(null, flow.getNamespace(), flow.getId());
@@ -254,7 +254,7 @@ public abstract class AbstractFlowRepositoryTest {
 
     @Test
     void findAllWithSource() {
-        List<FlowWithSource> save = flowRepository.findAllWithSource(null);
+        List<FlowInterface> save = flowRepository.findAllWithSource(null);
 
         assertThat((long) save.size(), is(Helpers.FLOWS_COUNT));
     }
@@ -268,7 +268,7 @@ public abstract class AbstractFlowRepositoryTest {
 
     @Test
     void findAllWithSourceForAllTenants() {
-        List<FlowWithSource> save = flowRepository.findAllWithSourceForAllTenants();
+        List<FlowInterface> save = flowRepository.findAllWithSourceForAllTenants();
 
         assertThat((long) save.size(), is(Helpers.FLOWS_COUNT));
     }
@@ -303,7 +303,7 @@ public abstract class AbstractFlowRepositoryTest {
             .revision(3)
             .build();
         String flowSource = "# comment\n" + flow.generateSource();
-        flow = flowRepository.create(GenericFlow.fromYaml(flowSource));
+        flow = flowRepository.create(GenericFlow.fromYaml(null, flowSource));
 
         try {
             List<FlowWithSource> save = flowRepository.findByNamespaceWithSource(null, flow.getNamespace());

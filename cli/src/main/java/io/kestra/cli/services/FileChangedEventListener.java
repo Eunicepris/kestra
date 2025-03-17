@@ -1,7 +1,7 @@
 package io.kestra.cli.services;
 
 import io.kestra.core.exceptions.DeserializationException;
-import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithPath;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.GenericFlow;
@@ -74,7 +74,7 @@ public class FileChangedEventListener {
             // Init existing flows not already in files
             flowListeners.listen(flows -> {
                 if (!isStarted) {
-                    for (FlowWithSource flow : flows) {
+                    for (FlowInterface flow : flows) {
                         if (this.flows.stream().noneMatch(flowWithPath -> flowWithPath.uidWithoutRevision().equals(flow.uidWithoutRevision()))) {
                             flowToFile(flow, this.buildPath(flow));
                             this.flows.add(FlowWithPath.of(flow, this.buildPath(flow).toString()));
@@ -221,11 +221,11 @@ public class FileChangedEventListener {
         }
     }
 
-    private void flowToFile(FlowWithSource flow, Path path) {
+    private void flowToFile(FlowInterface flow, Path path) {
         Path defaultPath = path != null ? path : this.buildPath(flow);
 
         try {
-            Files.writeString(defaultPath, flow.getSource());
+            Files.writeString(defaultPath, flow.source());
             log.info("Flow {} has been written to file {}", flow.getId(), defaultPath);
         } catch (IOException e) {
             log.error("Error writing file: {}", defaultPath, e);
@@ -255,7 +255,7 @@ public class FileChangedEventListener {
         }
     }
 
-    private Path buildPath(Flow flow) {
+    private Path buildPath(FlowInterface flow) {
         return fileWatchConfiguration.getPaths().getFirst().resolve(flow.uidWithoutRevision() + ".yml");
     }
 }

@@ -2,6 +2,7 @@ package io.kestra.core.models.topologies;
 
 import io.kestra.core.models.TenantInterface;
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -25,9 +26,9 @@ public class FlowNode implements TenantInterface {
 
     String id;
 
-    public static FlowNode of(Flow flow) {
+    public static FlowNode of(FlowInterface flow) {
         return FlowNode.builder()
-            .uid(flow.uidWithoutRevision())
+            .uid(Flow.uidWithoutRevision(flow))
             .tenantId(flow.getTenantId())
             .namespace(flow.getNamespace())
             .id(flow.getId())

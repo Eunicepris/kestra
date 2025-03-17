@@ -3,6 +3,8 @@ package io.kestra.core.topologies;
 import io.kestra.core.models.Label;
 import io.kestra.core.models.conditions.Condition;
 import io.kestra.core.models.executions.Execution;
+import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.hierarchies.Graph;
 import io.kestra.core.models.tasks.ExecutableTask;
@@ -14,6 +16,7 @@ import io.kestra.core.models.triggers.AbstractTrigger;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.repositories.FlowTopologyRepositoryInterface;
 import io.kestra.core.services.ConditionService;
+import io.kestra.core.services.PluginDefaultService;
 import io.kestra.core.utils.ListUtils;
 import io.kestra.plugin.core.condition.*;
 import io.micronaut.core.annotation.Nullable;
@@ -39,6 +42,9 @@ public class FlowTopologyService {
 
     @Inject
     private FlowTopologyRepositoryInterface flowTopologyRepository;
+
+    @Inject
+    private PluginDefaultService pluginDefaultService;
 
     public FlowTopologyGraph graph(Stream<FlowTopology> flows, Function<FlowNode, FlowNode> anonymize) {
         Graph<FlowNode, FlowRelation> graph = new Graph<>();
@@ -109,7 +115,7 @@ public class FlowTopologyService {
             .build();
     }
 
-    public Stream<FlowTopology> topology(FlowWithSource child, List<FlowWithSource> allFlows) {
+    public Stream<FlowTopology> topology(FlowInterface child, List<FlowInterface> allFlows) {
         return allFlows.stream()
             .flatMap(parent -> Stream.concat(
                 Stream.ofNullable(this.map(parent, child)),
@@ -118,9 +124,9 @@ public class FlowTopologyService {
             .filter(Objects::nonNull);
     }
 
-    private FlowTopology map(FlowWithSource parent, FlowWithSource child) {
+    private FlowTopology map(FlowInterface parent, FlowInterface child) {
         // we don't allow self link
-        if (child.uidWithoutRevision().equals(parent.uidWithoutRevision())) {
+        if (Flow.uidWithoutRevision(child).equals(Flow.uidWithoutRevision(parent))) {
             return null;
         }
 
@@ -140,7 +146,7 @@ public class FlowTopologyService {
     }
 
     @Nullable
-    public FlowRelation isChild(FlowWithSource parent, FlowWithSource child) {
+    public FlowRelation isChild(FlowInterface parent, FlowInterface child) {
         if (this.isFlowTaskChild(parent, child)) {
             return FlowRelation.FLOW_TASK;
         }
@@ -152,9 +158,11 @@ public class FlowTopologyService {
         return null;
     }
 
-    protected boolean isFlowTaskChild(FlowWithSource parent, FlowWithSource child) {
+    protected boolean isFlowTaskChild(FlowInterface parent, FlowInterface child) {
         try {
-            return parent
+            // TODO
+            FlowWithSource parentFlow = pluginDefaultService.injectVersionDefaults(parent);
+            return parentFlow
                 .allTasksWithChilds()
                 .stream()
                 .filter(t -> t instanceof ExecutableTask)
@@ -168,8 +176,11 @@ public class FlowTopologyService {
         }
     }
 
-    protected boolean isTriggerChild(FlowWithSource parent, FlowWithSource child) {
-        List<AbstractTrigger> triggers = ListUtils.emptyOnNull(child.getTriggers());
+    protected boolean isTriggerChild(FlowInterface parent, FlowInterface child) {
+        // TODO
+        FlowWithSource childFlow = pluginDefaultService.injectVersionDefaults(child);
+
+        List<AbstractTrigger> triggers = ListUtils.emptyOnNull(childFlow.getTriggers());
 
         // simulated execution: we add a "simulated" label so conditions can know that the evaluation is for a simulated execution
         Execution execution = Execution.newExecution(parent, (f, e) -> null, List.of(SIMULATED_EXECUTION), Optional.empty());
@@ -196,7 +207,7 @@ public class FlowTopologyService {
         return conditionMatch && preconditionMatch;
     }
 
-    private boolean validateCondition(Condition condition, FlowWithSource child, Execution execution) {
+    private boolean validateCondition(Condition condition, FlowInterface child, Execution execution) {
         if (isFilterCondition(condition)) {
             return true;
         }
@@ -208,7 +219,7 @@ public class FlowTopologyService {
         return this.conditionService.isValid(condition, child, execution);
     }
 
-    private boolean validateMultipleConditions(Map<String, Condition> multipleConditions, FlowWithSource child, Execution execution) {
+    private boolean validateMultipleConditions(Map<String, Condition> multipleConditions, FlowInterface child, Execution execution) {
         List<Condition> conditions = multipleConditions
             .values()
             .stream()

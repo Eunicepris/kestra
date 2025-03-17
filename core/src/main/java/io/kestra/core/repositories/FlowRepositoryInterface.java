@@ -5,6 +5,7 @@ import io.kestra.core.models.SearchResult;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.FlowForExecution;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowScope;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.GenericFlow;
@@ -106,11 +107,11 @@ public interface FlowRepositoryInterface {
 
     List<Flow> findAll(String tenantId);
 
-    List<FlowWithSource> findAllWithSource(String tenantId);
+    List<FlowInterface> findAllWithSource(String tenantId);
 
     List<Flow> findAllForAllTenants();
 
-    List<FlowWithSource> findAllWithSourceForAllTenants();
+    List<FlowInterface> findAllWithSourceForAllTenants();
 
     /**
      * Counts the total number of flows.
@@ -179,7 +180,7 @@ public interface FlowRepositoryInterface {
 
     FlowWithSource create(GenericFlow flow);
 
-    FlowWithSource update(GenericFlow flow, Flow previous) throws ConstraintViolationException;
+    FlowWithSource update(GenericFlow flow, FlowInterface previous) throws ConstraintViolationException;
 
-    FlowWithSource delete(FlowWithSource flow);
+    FlowWithSource delete(FlowInterface flow);
 }

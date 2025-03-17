@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithException;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.GenericFlow;
@@ -122,7 +123,7 @@ public class FlowService {
         return flowRepository.get().findById(tenantId, namespace, flowId);
     }
 
-    public Stream<FlowWithSource> keepLastVersion(Stream<FlowWithSource> stream) {
+    public Stream<FlowInterface> keepLastVersion(Stream<FlowInterface> stream) {
         return keepLastVersionCollector(stream);
     }
 
@@ -254,17 +255,17 @@ public class FlowService {
             .filter(method -> !Modifier.isStatic(method.getModifiers()));
     }
 
-    public Collection<FlowWithSource> keepLastVersion(List<FlowWithSource> flows) {
+    public Collection<FlowInterface> keepLastVersion(List<FlowInterface> flows) {
         return keepLastVersionCollector(flows.stream()).toList();
     }
 
-    public Stream<FlowWithSource> keepLastVersionCollector(Stream<FlowWithSource> stream) {
+    public Stream<FlowInterface> keepLastVersionCollector(Stream<FlowInterface> stream) {
         // Use a Map to track the latest version of each flow
-        Map<String, FlowWithSource> latestFlows = new HashMap<>();
+        Map<String, FlowInterface> latestFlows = new HashMap<>();
 
         stream.forEach(flow -> {
             String uid = flow.uidWithoutRevision();
-            FlowWithSource existing = latestFlows.get(uid);
+            FlowInterface existing = latestFlows.get(uid);
 
             // Update only if the current flow has a higher revision
             if (existing == null || flow.getRevision() > existing.getRevision()) {

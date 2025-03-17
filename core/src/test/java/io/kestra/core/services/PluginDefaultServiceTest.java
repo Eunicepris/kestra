@@ -286,7 +286,7 @@ class PluginDefaultServiceTest {
     @Test
     void shouldInjectFlowDefaultsGivenAlias() {
         // Given
-        GenericFlow flow = GenericFlow.fromYaml("""
+        GenericFlow flow = GenericFlow.fromYaml(null, """
               id: default-test
               namespace: io.kestra.tests
 
@@ -310,7 +310,7 @@ class PluginDefaultServiceTest {
 
     @Test
     void shouldInjectFlowDefaultsGivenType() {
-        GenericFlow flow = GenericFlow.fromYaml("""
+        GenericFlow flow = GenericFlow.fromYaml(null, """
                   id: default-test
                   namespace: io.kestra.tests
 
@@ -333,7 +333,7 @@ class PluginDefaultServiceTest {
     @Test
     public void shouldNotInjectDefaultsGivenExistingTaskValue() {
         // Given
-        GenericFlow flow = GenericFlow.fromYaml("""
+        GenericFlow flow = GenericFlow.fromYaml(null, """
             id: default-test
             namespace: io.kestra.tests
 

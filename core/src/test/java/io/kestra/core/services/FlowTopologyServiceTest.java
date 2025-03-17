@@ -1,6 +1,7 @@
 package io.kestra.core.services;
 
-import io.kestra.core.models.flows.FlowWithSource;
+import io.kestra.core.models.flows.FlowInterface;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.property.Property;
 import io.kestra.plugin.core.condition.ExecutionFlow;
 import io.kestra.plugin.core.condition.ExecutionStatus;
@@ -20,7 +21,9 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
@@ -38,7 +41,7 @@ class FlowTopologyServiceTest {
 
     @Test
     void flowTask() {
-        FlowWithSource parent = Flow.builder()
+        Flow parent = Flow.builder()
             .namespace("io.kestra.ee")
             .id("parent")
             .revision(1)
@@ -55,10 +58,9 @@ class FlowTopologyServiceTest {
                     ))
                     .build()
             ))
-            .build()
-            .withSource(null);
+            .build();
 
-        FlowWithSource child = Flow.builder()
+        Flow child = Flow.builder()
             .namespace("io.kestra.ee")
             .id("child")
             .revision(1)
@@ -71,102 +73,106 @@ class FlowTopologyServiceTest {
 
     @Test
     void noRelation() {
-        FlowWithSource parent = Flow.builder()
+        Flow parent = Flow.builder()
             .namespace("io.kestra.ee")
             .id("parent")
             .revision(1)
             .tasks(List.of(returnTask()))
-            .build()
-            .withSource(null);
+            .build();
 
-        FlowWithSource child = Flow.builder()
+        Flow child = Flow.builder()
             .namespace("io.kestra.ee")
             .id("child")
             .revision(1)
             .tasks(List.of(returnTask()))
-            .build()
-            .withSource(null);
+            .build();
 
         assertThat(flowTopologyService.isChild(parent, child), nullValue());
     }
 
     @Test
     void trigger() {
-        FlowWithSource parent = Flow.builder()
+        Flow parent = Flow.builder()
             .namespace("io.kestra.ee")
             .id("parent")
             .revision(1)
             .tasks(List.of(returnTask()))
-            .build()
-            .withSource(null);
+            .build();
 
-        FlowWithSource child = Flow.builder()
+        Flow child = Flow.builder()
             .namespace("io.kestra.ee")
             .id("child")
             .revision(1)
             .tasks(List.of(returnTask()))
             .triggers(List.of(
                 io.kestra.plugin.core.trigger.Flow.builder()
+                    .type(io.kestra.plugin.core.trigger.Flow.class.getName())
                     .conditions(List.of(
                         ExecutionFlow.builder()
+                            .type(ExecutionFlow.class.getName())
                             .namespace("io.kestra.ee")
                             .flowId("parent")
                             .build(),
                         ExecutionStatus.builder()
+                            .type(ExecutionStatus.class.getName())
                             .in(List.of(State.Type.SUCCESS))
                             .build()
                     ))
                     .build()
             ))
-            .build()
-            .withSource(null);
+            .build();
 
         assertThat(flowTopologyService.isChild(parent, child), is(FlowRelation.FLOW_TRIGGER));
     }
 
     @Test
     void multipleCondition() {
-        FlowWithSource parent = Flow.builder()
+        Flow parent = Flow.builder()
             .namespace("io.kestra.ee")
             .id("parent")
             .revision(1)
             .tasks(List.of(returnTask()))
-            .build()
-            .withSource(null);
+            .build();
 
-        FlowWithSource noTrigger = Flow.builder()
+        Flow noTrigger = Flow.builder()
             .namespace("io.kestra.exclude")
             .id("no")
             .revision(1)
             .tasks(List.of(returnTask()))
-            .build()
-            .withSource(null);
+            .build();
 
-        FlowWithSource child = Flow.builder()
+        Flow child = Flow.builder()
             .namespace("io.kestra.ee")
             .id("child")
             .revision(1)
             .tasks(List.of(returnTask()))
             .triggers(List.of(
                 io.kestra.plugin.core.trigger.Flow.builder()
+                    .type(io.kestra.plugin.core.trigger.Flow.class.getName())
                     .conditions(List.of(
                         ExecutionStatus.builder()
+                            .type(ExecutionStatus.class.getName())
                             .in(List.of(State.Type.SUCCESS))
                             .build(),
                         MultipleCondition.builder()
+                            .type(MultipleCondition.class.getName())
                             .conditions(Map.of(
                                 "first", ExecutionFlow.builder()
+                                    .type(ExecutionFlow.class.getName())
                                     .namespace("io.kestra.ee")
                                     .flowId("parent")
                                     .build(),
                                 "second", ExecutionFlow.builder()
+                                    .type(ExecutionFlow.class.getName())
                                     .namespace("io.kestra.others")
                                     .flowId("invalid")
                                     .build(),
                                 "filtered", ExecutionStatus.builder()
+                                    .type(ExecutionStatus.class.getName())
                                     .in(List.of(State.Type.SUCCESS))
                                     .build(),
                                 "variables", Expression.builder()
+                                    .type(Expression.class.getName())
                                     .expression("{{ true }}")
                                     .build()
                             ))
@@ -175,8 +181,7 @@ class FlowTopologyServiceTest {
                     ))
                     .build()
             ))
-            .build()
-            .withSource(null);
+            .build();
 
         assertThat(flowTopologyService.isChild(parent, child), is(FlowRelation.FLOW_TRIGGER));
 
@@ -185,29 +190,28 @@ class FlowTopologyServiceTest {
 
     @Test
     void preconditions() {
-        FlowWithSource parent = Flow.builder()
+        Flow parent = Flow.builder()
             .namespace("io.kestra.ee")
             .id("parent")
             .revision(1)
             .tasks(List.of(returnTask()))
-            .build()
-            .withSource(null);
+            .build();
 
-        FlowWithSource noTrigger = Flow.builder()
+        Flow noTrigger = Flow.builder()
             .namespace("io.kestra.exclude")
             .id("no")
             .revision(1)
             .tasks(List.of(returnTask()))
-            .build()
-            .withSource(null);
+            .build();
 
-        FlowWithSource child = Flow.builder()
+        Flow child = Flow.builder()
             .namespace("io.kestra.ee")
             .id("child")
             .revision(1)
             .tasks(List.of(returnTask()))
             .triggers(List.of(
                 io.kestra.plugin.core.trigger.Flow.builder()
+                    .type(io.kestra.plugin.core.trigger.Flow.class.getName())
                     .preconditions(io.kestra.plugin.core.trigger.Flow.Preconditions.builder()
                         .flows(List.of(
                             io.kestra.plugin.core.trigger.Flow.UpstreamFlow.builder().namespace("io.kestra.ee").flowId("parent").build(),
@@ -217,8 +221,7 @@ class FlowTopologyServiceTest {
                     )
                     .build()
             ))
-            .build()
-            .withSource(null);
+            .build();
 
         assertThat(flowTopologyService.isChild(parent, child), is(FlowRelation.FLOW_TRIGGER));
 
@@ -226,16 +229,15 @@ class FlowTopologyServiceTest {
     }
 
     @Test
-    void self1() {
-        FlowWithSource flow = parse("flows/valids/trigger-multiplecondition-listener.yaml").toBuilder().revision(1).build().withSource(null);
+    void self1() throws IOException {
+        FlowInterface flow = parse("flows/valids/trigger-multiplecondition-listener.yaml").toBuilder().revision(1).build();
 
         assertThat(flowTopologyService.isChild(flow, flow), nullValue());
     }
 
     @Test
-    void self() {
-        FlowWithSource flow = parse("flows/valids/trigger-flow-listener.yaml").toBuilder().revision(1).build().withSource(null);
-
+    void self() throws IOException {
+        FlowInterface flow = parse("flows/valids/trigger-flow-listener.yaml").toBuilder().revision(1).build();
         assertThat(flowTopologyService.isChild(flow, flow), nullValue());
     }
 
@@ -247,12 +249,12 @@ class FlowTopologyServiceTest {
             .build();
     }
 
-    private Flow parse(String path) {
+    private GenericFlow parse(String path) throws IOException {
         URL resource = TestsUtils.class.getClassLoader().getResource(path);
         assert resource != null;
 
         File file = new File(resource.getFile());
 
-        return yamlParser.parse(file, Flow.class);
+        return GenericFlow.fromYaml(null, Files.readString(file.toPath()));
     }
 }

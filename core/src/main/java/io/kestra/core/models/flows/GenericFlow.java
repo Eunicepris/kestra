@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.kestra.core.exceptions.DeserializationException;
-import io.kestra.core.models.HasSource;
 import io.kestra.core.models.HasUID;
 import io.kestra.core.models.Label;
 import io.kestra.core.serializers.ListOrMapOfLabelDeserializer;
@@ -21,6 +20,7 @@ import lombok.experimental.SuperBuilder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Represents an un-typed {@link FlowInterface} implementation for which
@@ -33,13 +33,18 @@ import java.util.Map;
 @SuperBuilder(toBuilder = true)
 @Getter
 @NoArgsConstructor
-public class GenericFlow implements FlowInterface, HasSource, HasUID {
+@JsonDeserialize
+public class GenericFlow extends AbstractFlow implements HasUID {
 
     String id;
 
     String namespace;
 
     Integer revision;
+
+    List<Input<?>> inputs;
+
+    Map<String, Object> variables;
 
     @Builder.Default
     boolean disabled = false;
@@ -54,7 +59,6 @@ public class GenericFlow implements FlowInterface, HasSource, HasUID {
 
     String tenantId;
 
-    @JsonIgnore
     private String source;
 
     @JsonIgnore
@@ -76,16 +80,6 @@ public class GenericFlow implements FlowInterface, HasSource, HasUID {
         }
     }
 
-    /**
-     * Static helper method for constructing a {@link GenericFlow} from a YAML source.
-     *
-     * @param source The flow YAML source.
-     * @return a new {@link GenericFlow}
-     * @throws DeserializationException if source cannot be deserialized.
-     */
-    public static GenericFlow fromYaml(final String source) throws DeserializationException {
-        return fromYaml(null, source);
-    }
 
     /**
      * Static helper method for constructing a {@link GenericFlow} from a YAML source.
@@ -112,29 +106,18 @@ public class GenericFlow implements FlowInterface, HasSource, HasUID {
         this.additionalProperties.put(name, value);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} **/
     @Override
     public String source() {
-        return source;
+        return getSource();
     }
 
     /**
      * {@inheritDoc}
      */
+    @JsonIgnore
     @Override
     public String uid() {
         return Flow.uid(this);
-    }
-
-    public GenericFlow tenantId(final String tenantId) {
-        // This is a hack to set the tenantId in template tasks.
-        // When using the Template task, we need the tenantId to fetch the Template from the database.
-        // However, as the task is executed on the Executor we cannot retrieve it from the tenant service and have no other options.
-        // So we save it at flow creation/updating time.
-        // TODO
-
-        return this.toBuilder().tenantId(tenantId).build();
     }
 }

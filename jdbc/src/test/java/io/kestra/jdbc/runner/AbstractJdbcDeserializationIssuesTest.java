@@ -50,17 +50,17 @@ public abstract class AbstractJdbcDeserializationIssuesTest {
 
     @Test
     void workerTaskDeserializationIssue() throws Exception {
-        deserializationIssuesCaseTest.workerTaskDeserializationIssue(queueMessage -> sendToQueue(queueMessage));
+        deserializationIssuesCaseTest.workerTaskDeserializationIssue(this::sendToQueue);
     }
 
     @Test
     void workerTriggerDeserializationIssue() throws Exception {
-        deserializationIssuesCaseTest.workerTriggerDeserializationIssue(queueMessage -> sendToQueue(queueMessage));
+        deserializationIssuesCaseTest.workerTriggerDeserializationIssue(this::sendToQueue);
     }
 
     @Test
-    void flowDeserializationIssue() throws TimeoutException, QueueException {
-        deserializationIssuesCaseTest.flowDeserializationIssue(queueMessage -> sendToQueue(queueMessage));
+    void flowDeserializationIssue() throws Exception {
+        deserializationIssuesCaseTest.flowDeserializationIssue(this::sendToQueue);
     }
 
     private void sendToQueue(DeserializationIssuesCaseTest.QueueMessage queueMessage) {

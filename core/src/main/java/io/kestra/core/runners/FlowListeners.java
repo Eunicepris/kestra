@@ -1,8 +1,9 @@
 package io.kestra.core.runners;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithException;
-import io.kestra.core.models.flows.FlowWithSource;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.serializers.JacksonMapper;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -29,16 +30,16 @@ public class FlowListeners implements FlowListenersInterface {
     private static final ObjectMapper MAPPER = JacksonMapper.ofJson();
 
     private Boolean isStarted = false;
-    private final QueueInterface<FlowWithSource> flowQueue;
-    private final List<FlowWithSource> flows;
-    private final List<Consumer<List<FlowWithSource>>> consumers = new ArrayList<>();
+    private final QueueInterface<FlowInterface> flowQueue;
+    private final List<FlowInterface> flows;
+    private final List<Consumer<List<FlowInterface>>> consumers = new ArrayList<>();
 
-    private final List<BiConsumer<FlowWithSource, FlowWithSource>> consumersEach = new ArrayList<>();
+    private final List<BiConsumer<FlowInterface, FlowInterface>> consumersEach = new ArrayList<>();
 
     @Inject
     public FlowListeners(
         FlowRepositoryInterface flowRepository,
-        @Named(QueueFactoryInterface.FLOW_NAMED) QueueInterface<FlowWithSource> flowQueue
+        @Named(QueueFactoryInterface.FLOW_NAMED) QueueInterface<FlowInterface> flowQueue
     ) {
         this.flowQueue = flowQueue;
         this.flows = flowRepository.findAllWithSourceForAllTenants();
@@ -51,7 +52,7 @@ public class FlowListeners implements FlowListenersInterface {
                 this.isStarted = true;
 
                 this.flowQueue.receive(either -> {
-                    FlowWithSource flow;
+                    FlowInterface flow;
                     if (either.isRight()) {
                         log.error("Unable to deserialize a flow: {}", either.getRight().getMessage());
                         try {
@@ -66,7 +67,7 @@ public class FlowListeners implements FlowListenersInterface {
                     else {
                         flow = either.getLeft();
                     }
-                    Optional<FlowWithSource> previous = this.previous(flow);
+                    Optional<FlowInterface> previous = this.previous(flow);
 
                     if (flow.isDeleted()) {
                         this.remove(flow);
@@ -96,14 +97,13 @@ public class FlowListeners implements FlowListenersInterface {
         }
     }
 
-    private Optional<FlowWithSource> previous(FlowWithSource flow) {
-        return flows
-            .stream()
+    private Optional<FlowInterface> previous(final FlowInterface flow) {
+        return flows.stream()
             .filter(r -> Objects.equals(r.getTenantId(), flow.getTenantId()) && r.getNamespace().equals(flow.getNamespace()) && r.getId().equals(flow.getId()))
             .findFirst();
     }
 
-    private boolean remove(FlowWithSource flow) {
+    private boolean remove(FlowInterface flow) {
         synchronized (this) {
             boolean remove = flows.removeIf(r -> Objects.equals(r.getTenantId(), flow.getTenantId()) && r.getNamespace().equals(flow.getNamespace()) && r.getId().equals(flow.getId()));
             if (!remove && flow.isDeleted()) {
@@ -114,7 +114,7 @@ public class FlowListeners implements FlowListenersInterface {
         }
     }
 
-    private void upsert(FlowWithSource flow) {
+    private void upsert(FlowInterface flow) {
         synchronized (this) {
             this.remove(flow);
 
@@ -129,7 +129,7 @@ public class FlowListeners implements FlowListenersInterface {
         }
     }
 
-    private void notifyConsumersEach(FlowWithSource flow, FlowWithSource previous) {
+    private void notifyConsumersEach(FlowInterface flow, FlowInterface previous) {
         synchronized (this) {
             this.consumersEach
                 .forEach(consumer -> consumer.accept(flow, previous));
@@ -137,7 +137,7 @@ public class FlowListeners implements FlowListenersInterface {
     }
 
     @Override
-    public void listen(Consumer<List<FlowWithSource>> consumer) {
+    public void listen(Consumer<List<FlowInterface>> consumer) {
         synchronized (this) {
             consumers.add(consumer);
             consumer.accept(new ArrayList<>(this.flows()));
@@ -145,7 +145,7 @@ public class FlowListeners implements FlowListenersInterface {
     }
 
     @Override
-    public void listen(BiConsumer<FlowWithSource, FlowWithSource> consumer) {
+    public void listen(BiConsumer<FlowInterface, FlowInterface> consumer) {
         synchronized (this) {
             consumersEach.add(consumer);
         }
@@ -153,7 +153,7 @@ public class FlowListeners implements FlowListenersInterface {
 
     @SneakyThrows
     @Override
-    public List<FlowWithSource> flows() {
+    public List<FlowInterface> flows() {
         // we forced a deep clone to avoid concurrency where instance are changed during iteration (especially scheduler).
         return new ArrayList<>(this.flows);
     }

@@ -70,7 +70,7 @@ public class FlowAutoLoaderService {
                     })
                 )
                 .map(source -> {
-                    GenericFlow flow = GenericFlow.fromYaml(source);
+                    GenericFlow flow = GenericFlow.fromYaml(null, source);
                     repository.create(flow);
                     log.debug("Loaded flow '{}/{}'.", flow.getNamespace(), flow.getId());
                     return 1;

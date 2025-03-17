@@ -6,10 +6,10 @@ import io.kestra.core.models.triggers.Trigger;
 import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.repositories.TriggerRepositoryInterface;
 import io.kestra.core.schedulers.*;
-import io.kestra.core.services.ConditionService;
 import io.kestra.core.services.ExecutionService;
 import io.kestra.core.services.FlowListenersInterface;
 import io.kestra.core.services.FlowService;
+import io.kestra.core.services.PluginDefaultService;
 import io.kestra.core.utils.ListUtils;
 import io.kestra.jdbc.JooqDSLContextWrapper;
 import io.kestra.jdbc.repository.AbstractJdbcTriggerRepository;
@@ -30,7 +30,7 @@ public class JdbcScheduler extends AbstractScheduler {
     private final FlowRepositoryInterface flowRepository;
     private final JooqDSLContextWrapper dslContextWrapper;
     private final ExecutionService executionService;
-
+    private final PluginDefaultService pluginDefaultService;
 
     @Inject
     public JdbcScheduler(
@@ -45,6 +45,7 @@ public class JdbcScheduler extends AbstractScheduler {
         executionService = applicationContext.getBean(ExecutionService.class);
         flowRepository = applicationContext.getBean(FlowRepositoryInterface.class);
         dslContextWrapper = applicationContext.getBean(JooqDSLContextWrapper.class);
+        pluginDefaultService = applicationContext.getBean(PluginDefaultService.class);
     }
 
     @Override
@@ -77,11 +78,14 @@ public class JdbcScheduler extends AbstractScheduler {
         // remove trigger on flow update
         this.flowListeners.listen((flow, previous) -> {
             if (flow.isDeleted()) {
-                ListUtils.emptyOnNull(flow.getTriggers())
+                FlowWithSource current = pluginDefaultService.injectAllDefaults(flow);
+                ListUtils.emptyOnNull(current.getTriggers())
                     .forEach(abstractTrigger -> triggerRepository.delete(Trigger.of(flow, abstractTrigger)));
             } else if (previous != null) {
+                FlowWithSource current = pluginDefaultService.injectAllDefaults(flow);
+                FlowWithSource before = pluginDefaultService.injectAllDefaults(previous);
                 FlowService
-                    .findRemovedTrigger(flow, previous)
+                    .findRemovedTrigger(current, before)
                     .forEach(abstractTrigger -> triggerRepository.delete(Trigger.of(flow, abstractTrigger)));
             }
         });

@@ -743,7 +743,7 @@ class FlowControllerTest {
         String flow = Files.readString(Path.of(Objects.requireNonNull(resource).getPath()), Charset.defaultCharset());
 
         String firstFlowSource = flow.split("(?m)^---")[0];
-        jdbcFlowRepository.create(GenericFlow.fromYaml(firstFlowSource));
+        jdbcFlowRepository.create(GenericFlow.fromYaml(null, firstFlowSource));
 
         HttpResponse<List<ValidateConstraintViolation>> response = client.toBlocking().exchange(POST("/api/v1/flows/validate", flow).contentType(MediaType.APPLICATION_YAML), Argument.listOf(ValidateConstraintViolation.class));
 
@@ -777,7 +777,7 @@ class FlowControllerTest {
         URL resource = TestsUtils.class.getClassLoader().getResource("flows/warningsAndInfos.yaml");
         String source = Files.readString(Path.of(Objects.requireNonNull(resource).getPath()), Charset.defaultCharset());
 
-        jdbcFlowRepository.create(GenericFlow.fromYaml(source));
+        jdbcFlowRepository.create(GenericFlow.fromYaml(null, source));
 
         HttpResponse<List<ValidateConstraintViolation>> response = client.toBlocking().exchange(POST("/api/v1/flows/validate", source).contentType(MediaType.APPLICATION_YAML), Argument.listOf(ValidateConstraintViolation.class));
 

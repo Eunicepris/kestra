@@ -6,6 +6,7 @@ import io.kestra.core.exceptions.InternalException;
 import io.kestra.core.models.Label;
 import io.kestra.core.models.executions.*;
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithException;
 import io.kestra.core.models.flows.State;
 import io.kestra.core.models.property.Property;
@@ -135,7 +136,7 @@ public final class ExecutableUtils {
             String subflowId = runContext.render(currentTask.subflowId().flowId());
             Optional<Integer> subflowRevision = currentTask.subflowId().revision();
 
-            Flow flow = flowExecutorInterface.findByIdFromTask(
+            FlowInterface flow = flowExecutorInterface.findByIdFromTask(
                     currentExecution.getTenantId(),
                     subflowNamespace,
                     subflowId,
@@ -202,7 +203,7 @@ public final class ExecutableUtils {
         }));
     }
 
-    private static List<Label> filterLabels(List<Label> labels, Flow flow) {
+    private static List<Label> filterLabels(List<Label> labels, FlowInterface flow) {
         if (ListUtils.isEmpty(flow.getLabels())) {
             return labels;
         }

@@ -1,6 +1,7 @@
 package io.kestra.core.repositories;
 
 import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.models.flows.FlowWithSource;
 import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.validations.ModelValidator;
@@ -72,20 +73,20 @@ public class LocalFlowRepositoryLoader {
     }
 
     public void load(File basePath) throws IOException {
-        Map<String, Flow> flowByUidInRepository = flowRepository.findAllForAllTenants().stream()
-            .collect(Collectors.toMap(Flow::uidWithoutRevision, Function.identity()));
+        Map<String, FlowInterface> flowByUidInRepository = flowRepository.findAllForAllTenants().stream()
+            .collect(Collectors.toMap(it -> Flow.uidWithoutRevision(it), Function.identity()));
 
         try (Stream<Path> pathStream = Files.walk(basePath.toPath())) {
             pathStream.filter(YamlParser::isValidExtension)
                 .forEach(Rethrow.throwConsumer(file -> {
                     try {
                         String source = Files.readString(Path.of(file.toFile().getPath()), Charset.defaultCharset());
-                        GenericFlow parsed = GenericFlow.fromYaml(source);
+                        GenericFlow parsed = GenericFlow.fromYaml(null, source);
 
                         FlowWithSource flowWithSource = pluginDefaultService.injectAllDefaults(parsed);
                         modelValidator.validate(flowWithSource);
 
-                        Flow existing = flowByUidInRepository.get(flowWithSource.uidWithoutRevision());
+                        FlowInterface existing = flowByUidInRepository.get(flowWithSource.uidWithoutRevision());
 
                         if (existing == null) {
                             flowRepository.create(parsed);
