@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -28,12 +30,12 @@ import jakarta.inject.Singleton;
 public class FlowListeners implements FlowListenersInterface {
     private static final ObjectMapper MAPPER = JacksonMapper.ofJson();
 
-    private Boolean isStarted = false;
+    private AtomicBoolean isStarted = new AtomicBoolean();
     private final QueueInterface<FlowWithSource> flowQueue;
     private final List<FlowWithSource> flows;
-    private final List<Consumer<List<FlowWithSource>>> consumers = new ArrayList<>();
+    private final List<Consumer<List<FlowWithSource>>> consumers = new CopyOnWriteArrayList<>();
 
-    private final List<BiConsumer<FlowWithSource, FlowWithSource>> consumersEach = new ArrayList<>();
+    private final List<BiConsumer<FlowWithSource, FlowWithSource>> consumersEach = new CopyOnWriteArrayList<>();
 
     @Inject
     public FlowListeners(
@@ -46,58 +48,55 @@ public class FlowListeners implements FlowListenersInterface {
 
     @Override
     public void run() {
-        synchronized (this) {
-            if (!this.isStarted) {
-                this.isStarted = true;
-
-                this.flowQueue.receive(either -> {
-                    FlowWithSource flow;
-                    if (either.isRight()) {
-                        log.error("Unable to deserialize a flow: {}", either.getRight().getMessage());
-                        try {
-                            var jsonNode = MAPPER.readTree(either.getRight().getRecord());
-                            flow = FlowWithException.from(jsonNode, either.getRight()).orElseThrow(IOException::new);
-                        } catch (IOException e) {
-                            // if we cannot create a FlowWithException, ignore the message
-                            log.error("Unexpected exception when trying to handle a deserialization error", e);
-                            return;
-                        }
+        if (!this.isStarted.compareAndSet(false, true)) {
+            this.flowQueue.receive(either -> {
+                FlowWithSource flow;
+                if (either.isRight()) {
+                    log.error("Unable to deserialize a flow: {}", either.getRight().getMessage());
+                    try {
+                        var jsonNode = MAPPER.readTree(either.getRight().getRecord());
+                        flow = FlowWithException.from(jsonNode, either.getRight()).orElseThrow(IOException::new);
+                    } catch (IOException e) {
+                        // if we cannot create a FlowWithException, ignore the message
+                        log.error("Unexpected exception when trying to handle a deserialization error", e);
+                        return;
                     }
-                    else {
-                        flow = either.getLeft();
-                    }
-                    Optional<FlowWithSource> previous = this.previous(flow);
+                }
+                else {
+                    flow = either.getLeft();
+                }
+                Optional<FlowWithSource> previous = this.previous(flow);
 
-                    if (flow.isDeleted()) {
-                        this.remove(flow);
-                    } else {
-                        this.upsert(flow);
-                    }
-
-                    if (log.isTraceEnabled()) {
-                        log.trace(
-                            "Received {} flow '{}.{}'",
-                            flow.isDeleted() ? "deletion" : "update",
-                            flow.getNamespace(),
-                            flow.getId()
-                        );
-                    }
-
-                    this.notifyConsumersEach(flow, previous.orElse(null));
-                    this.notifyConsumers();
-                });
+                if (flow.isDeleted()) {
+                    this.remove(flow);
+                } else {
+                    this.upsert(flow);
+                }
 
                 if (log.isTraceEnabled()) {
-                    log.trace("FlowListenersService started with {} flows", flows.size());
+                    log.trace(
+                        "Received {} flow '{}.{}'",
+                        flow.isDeleted() ? "deletion" : "update",
+                        flow.getNamespace(),
+                        flow.getId()
+                    );
                 }
-            }
 
-            this.notifyConsumers();
+                this.notifyConsumersEach(flow, previous.orElse(null));
+                this.notifyConsumers();
+            });
+
+            if (log.isTraceEnabled()) {
+                log.trace("FlowListenersService started with {} flows", flows.size());
+            }
         }
+
+        this.notifyConsumers();
     }
 
     private Optional<FlowWithSource> previous(FlowWithSource flow) {
-        return flows
+        List<FlowWithSource> copy = new ArrayList<>(this.flows);
+        return copy
             .stream()
             .filter(r -> Objects.equals(r.getTenantId(), flow.getTenantId()) && r.getNamespace().equals(flow.getNamespace()) && r.getId().equals(flow.getId()))
             .findFirst();
